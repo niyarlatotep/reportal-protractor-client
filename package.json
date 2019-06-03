@@ -1,0 +1,28 @@
+{
+  "name": "reportal-protractor-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "form-data": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/form-data": "^2.2.1",
+    "@types/node": "^12.0.2",
+    "@types/protractor": "^4.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Niyarlatotep/reportal-protractor-client.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Niyarlatotep/reportal-protractor-client/issues"
+  },
+  "homepage": "https://github.com/Niyarlatotep/reportal-protractor-client#readme"
+}
