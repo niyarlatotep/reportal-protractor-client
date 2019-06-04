@@ -1,4 +1,4 @@
-import {browser, ProtractorBrowser} from "protractor";
+import {ProtractorBrowser} from "protractor";
 import axios from 'axios';
 import FormData from "form-data";
 import Axios from "axios";
@@ -31,18 +31,21 @@ function getNewId(): string {
 class ReportalClient{
     private projectId: string;
     private launchName: string;
-    private disableScreenShots: boolean;
+    private takeScreenShots: boolean;
     private runningSuite: any = null;
     private allSuites: any[] = [];
     private allSpecs: any[] = [];
     private reportalUrl: string;
     private browser: ProtractorBrowser;
+    //by default screenshots only on fail
+    private takeScreenShotsAlways: boolean;
 
-    constructor({projectId, launchName, reportalUrl, browser, disableScreenShots=true}: {projectId: string, launchName: string,
-        reportalUrl: string, disableScreenShots?: boolean, browser: ProtractorBrowser}){
+    constructor({projectId, launchName, reportalUrl, browser, takeScreenShotsAlways=false, takeScreenShots=true}: {projectId: string, launchName: string,
+        reportalUrl: string, takeScreenShots?: boolean, browser: ProtractorBrowser, takeScreenShotsAlways?: boolean}){
         this.projectId = projectId;
         this.launchName = launchName;
-        this.disableScreenShots = disableScreenShots;
+        this.takeScreenShots = takeScreenShots;
+        this.takeScreenShotsAlways = takeScreenShotsAlways;
         this.reportalUrl = reportalUrl;
         this.browser = browser;
     }
@@ -71,24 +74,33 @@ class ReportalClient{
         return currentSpecClone;
     }
 
-    private skipScreenShooting(spec: any) {
-        if (spec.status === 'pending' || spec.status === 'disabled'){
-            return true;
+    private takeScreenshots(spec: any) {
+        if (spec.status === 'pending' || spec.status === 'disabled' || !this.takeScreenShots){
+            return false;
         }
-
-        return this.disableScreenShots;
+        return this.takeScreenShotsAlways || spec.status === 'failed';
     }
 
     private async reportScreenShot(screenId: string){
         const screenShot = await this.browser.takeScreenshot();
         const form = new FormData();
         form.append('screen', screenShot);
+        form.append('projectId', this.projectId);
+        form.append('launchName', this.launchName);
+        form.append('screenId', screenId);
         const formHeaders = await getHeaders(form);
         try {
-            await Axios.post(`http://localhost:3000/report-screen/${screenId}`, form, {headers: formHeaders});
+            await Axios.post(`http://localhost:3000/report-screen`, form, {headers: formHeaders});
         } catch (e) {
             console.error(e);
         }
+    }
+
+    jasmineStarted(){
+        /* Dirty fix to make sure last screenshot is always linked to the report
+        * TODO: remove once we're able to return a promise from specDone / suiteDone
+        */
+        afterAll(process.nextTick);
     }
 
     suiteStarted(suite: any) {
@@ -114,10 +126,9 @@ class ReportalClient{
     };
 
     async specDone(spec: any) {
-        spec.screenId =getNewId();
-
         //immediately take screenshot to keep the state of the browser screen do it async
-        if (!this.skipScreenShooting(spec)){
+        if (this.takeScreenshots(spec)){
+            spec.screenId = getNewId();
             this.reportScreenShot(spec.screenId)
         }
         spec = this.getSpecClone(spec);
@@ -132,7 +143,9 @@ class ReportalClient{
             spec.specId = replaceInvalidSymbols(spec.description);
             spec.launchName = this.launchName;
             spec.projectId = this.projectId;
-            axios.post(`${this.reportalUrl}/report`, spec).catch(error => console.error(error))
+            await axios.post(`${this.reportalUrl}/report`, spec);
+            console.log('Spec saved:');
+            console.log(spec);
         } catch (e){
             console.error(e);
         }
